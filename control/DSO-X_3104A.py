@@ -134,9 +134,12 @@ class InfiniiVision:
             else:
                 print("没有该功能,请自行单独向设备发送命令")       
 
+    #todo 分段式存储采集并数字化
+    def segm_dig(self,type):
+        "分段式存储的采用和设置"
 
     #mark 采集并数字化
-    def dig_capture(self, mode = "RTIMe",type="NORMal"):
+    def rtime_dig(self, mode = "RTIMe",type="NORMal"):
         ':ACQuire系(有"NORM"、"AVER"、"HRES"、"PEAK"）和:DIGital'
         modes = {"RTIMe","RITM","SEGMented","SEGM"}
         types = {"NORMal","NORM", "AVERage","AVER","HRESolution","HRES"}
