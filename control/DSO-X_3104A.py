@@ -48,7 +48,7 @@ class InfiniiVision:
     #——————————————————————————————————————————————————————————
     #? 但感觉捕获部分的设备设置应该独立出来，根据我测的情况做更改
     #update 那就写一个自动化捕获的函数，然后再写一系列自定义设置的函数
-    def auto_capture(self):
+    def auto_capture(self)-> None:
         '自动化捕获默认通道1,用auto-scale自动设置,然后:ACQuire模式为normal, :DIGital'        
         # 用 auto-scale 自动设置示波器，设置了“边沿触发”
         print("Autoscale.")
@@ -62,7 +62,7 @@ class InfiniiVision:
 
 
     #mark 按配置文件配置
-    def set_by_file(self,file):
+    def set_by_file(self,file)-> None:
         f = open(os.file.join(dir, file),"rb")
         setup_bytes = f.read()
         f.close()
@@ -74,7 +74,7 @@ class InfiniiVision:
         #done 以后需要相关的功能再写
     #mark触发设置
         #todo 把触发改成仅仅时边沿触发，因为触发的模式太多了，分开写会比较好
-    def trigger_edge_set(self, **sets):
+    def trigger_edge_set(self, **sets)-> None:
         '设置edge模式的相关参数'
         #耦合是直流交流还有"LFReject"（50khz高通），level控制触发电压电平
         EDGE = {"耦合": "DC", "level": "5E-2","拒绝":"OFF","斜率":"POSitive","触发源":"CHANnel1"}
@@ -108,7 +108,7 @@ class InfiniiVision:
 
     #mark 通道、时间基础设置
             #todo 增加带宽控制，虽然编程手册说带宽限制可以写任意值，但是只有25Mhz (:CHANnel<n>:BANDwidth)
-    def scale_set(self,chan_scale= "0.05V",chan_offset=0,time_scale =1.5E-7 ,time_offeset = 0,**comm):
+    def scale_set(self,chan_scale= "0.05V",chan_offset=0,time_scale =1.5E-7 ,time_offeset = 0,**comm)->None:
         '采集时间基数和通道基数的设定,还有增加精准游标":VERNier",反转纵向值":INVert?",设置阻抗"IMPedance"FIFty or ONEMeg功能'
         commands={":VERNier":0,":INVert":0,"IMPedance":"ONEMeg"}
         self.instrument.write(":AUToscale")
@@ -135,22 +135,20 @@ class InfiniiVision:
                 print("没有该功能,请自行单独向设备发送命令")       
 
     #todo 分段式存储采集并数字化
-    def segm_dig(self,type):
-        "分段式存储的采用和设置"
-
-    #mark 采集并数字化
-    def rtime_dig(self, mode = "RTIMe",type="NORMal"):
-        ':ACQuire系(有"NORM"、"AVER"、"HRES"、"PEAK"）和:DIGital'
-        modes = {"RTIMe","RITM","SEGMented","SEGM"}
+    def segm_dig(self,type="")-> None:
+        "分段式存储的采用和设置,不可使用AVERage平均模式采集"
+        command = ":ACQuire:MODE SEGMented"
+        self.instrument.write(command)
         types = {"NORMal","NORM", "AVERage","AVER","HRESolution","HRES"}
-        if mode in modes:
-            if mode in ["SEGMented","SEGM"]:
-                command = ":ACQuire:MODE SEGMented"
-                self.instrument.write(command)
-                print("采用分段存储模式,不可使用AVERage平均模式采集")
-        else:
-            print("没有这种采集模式")
-
+        if type in types:
+            command = ":ACQuire:TYPE "+type
+            self.instrument.write(command)
+    
+    #mark 采集并数字化
+    def rtime_dig(self,type="NORMal"):
+        ':ACQuire系(有"NORM"、"AVER"、"HRES"、"PEAK"）和:DIGital'
+        types = {"NORMal","NORM", "AVERage","AVER","HRESolution","HRES"}
+        self.instrument.write(":ACQuire:MODE RTIMe")
         if type in types:
             command = ":ACQuire:TYPE "+type
             self.instrument.write(command)
@@ -166,18 +164,30 @@ class InfiniiVision:
     #——————————————————————————————————————————————————————————
     #mark 传输波形数据 points_mode可以调整但功能还没写进去
     def waveform_trans(self,name,points_mode="RAW", points=1000000,format ="WORD",pre=1):
-        '可以选择是否传输数据前序pre'
-        today = datetime.today()
-        dir = self.dir_data_save
-        if not os.path.exists(dir):
-            os.makedirs(dir)
-        name = name + today 
-
+        '波形传输'
         self.instrument.write(f":WAVeform:SOURce {self.inp_chan}")
         self.instrument.write(f":WAVeform:POINts:MODE {points_mode}")
         self.instrument.write(f":WAVeform:POINts:MODE {points}")
         self.instrument.write(f":WAVeform:POINts:MODE {format}")
-        #传递波形前序
+
+    #mark 波形数据存储
+    def waveform_pre_save(self,name:str)->None:
+        #文件名时间戳
+        now = datetime.datetime.now().strftime("%H:%M")
+        dir = self.dir_data_save
+        if not os.path.exists(dir):
+            os.makedirs(dir)
+        name = name + now 
+        
+
+    def waveform_save(self,name:str,pre:int =1)->None:
+        #文件名时间戳
+        now = datetime.datetime.now().strftime("%H:%M")
+        dir = self.dir_data_save
+        if not os.path.exists(dir):
+            os.makedirs(dir)
+        name = name + now 
+         #传递波形前序
         wav_form_dict = {
             0 : "BYTE",
             1 : "WORD",
@@ -199,14 +209,14 @@ class InfiniiVision:
             ) = preamble_string.split(",")
             #文本内容
             txt=f"Waveform format: {wav_form_dict[int(wav_form)]}"+"\n"\
-                  +f"Acquire type: {acq_type_dict[int(acq_type)]}"+"\n"\
-                  +f"传输点数： {wfmpts}，波形平均数{avgcnt}"+ "\n"\
-                  +f"时间步增：{x_increment}，时间起始位置：{x_origin}，起始参考点：{x_reference}"+"\n"\
-                  +f"纵向步增：{y_increment}，纵向起始点：{y_origin}，起始参考点：{y_reference}"
+                    +f"Acquire type: {acq_type_dict[int(acq_type)]}"+"\n"\
+                    +f"传输点数： {wfmpts}，波形平均数{avgcnt}"+ "\n"\
+                    +f"时间步增：{x_increment}，时间起始位置：{x_origin}，起始参考点：{x_reference}"+"\n"\
+                    +f"纵向步增：{y_increment}，纵向起始点：{y_origin}，起始参考点：{y_reference}"
             #指定位置写入文本
             f = open(os.file.join(dir, "pre_data"+name+".txt"), "a+") #"a+"追加在文件末尾
             f.write(txt)  
-            f.close()
+            f.close()   
         
         #传入波形数据 下面的应该是有的
         # x_increment = self.instrument.write(":WAVeform:XINCrement?")
@@ -237,16 +247,16 @@ class InfiniiVision:
         
         file.close()
         print(f"{format}数据已写入示波器波形数据{name}")
-        
+
     #mark 存示波器屏幕
     def screen_save(self,name):
-        today = datetime.today()
+        now = datetime.datetime.now().strftime("%H:%M")
         #创建路径
         dir = self.dir_screen_save
         if not os.path.exists(dir):
             os.makedirs(dir)
 
-        name = name + today +".png"
+        name = name + now +".png"
         #获取示波器图片的二进制值
         screen_bytes = self.instrument.query_binary_values(":DISPlay:DATA? PNG, COLor")
 
@@ -256,13 +266,13 @@ class InfiniiVision:
         print(f"{name}示波器屏幕已保存")
 
     #mark 存示波器配置
-    def save_setup(self,name):
-        today = datetime.today()
+    def setup_save(self,name):
+        now = datetime.datetime.now().strftime("%H:%M")
         dir = self.dir_setup_save
         if not os.path.exists(dir):
             os.makedirs(dir)
 
-        name = name + today
+        name = name + now
         setup_bytes = self.instrument.query_binary_values(":SYSTem:SETup?")
 
         f = open(os.file.join(dir, name), "wb")
