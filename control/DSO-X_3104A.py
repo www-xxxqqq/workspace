@@ -16,7 +16,7 @@ class InfiniiVision:
     def __init__(self,instr_addr,input_channel,
                  dir_data_save="D:\数据\示波器波形数据"+ os.sep + datetime.today(),
                  dir_screen_save="D:\数据\示波器屏幕"+ os.sep + datetime.today(),
-                 dir_setup_save="D:\数据\配置文件"+ os.sep + datetime.today()):
+                 dir_setup_save="D:\数据\配置文件"+ os.sep + datetime.today()) -> None:
         '地址，信号源，保存数据、屏幕、配置文件的路径'
         self.instr_addr = instr_addr
         self.inp_chan = input_channel#注意用编程手册规范的通道写法
@@ -29,7 +29,7 @@ class InfiniiVision:
     #——————————————————————————————————————————————————————————
     #mark 示波器初始化
     #——————————————————————————————————————————————————————————
-    def initialize(self,rst=1):
+    def initialize(self,rst=1)-> None:
         '对示波器初始化,连接电脑与设备.打印设备信息,清除状态并加载默认设置'
         #连接设备与电脑
         rm=pyvisa.ResourceManager()
@@ -73,56 +73,41 @@ class InfiniiVision:
     #update 触发有内部有外部，每个模式触发的内容不一样所以没写完整
         #done 以后需要相关的功能再写
     #mark触发设置
-    def trigger_set(self,mode = "EDGE", **sets):
-        '设置模式，以及模式相关参数'
-        #有效的模式命名
-        modes = {"EDGE","GLITch","PATTern","TV","DELay","EBURst",
-                 "OR","RUNT","SHOLd","TRANsition","SBUS{1}","SBUS{2}","USB"}
+        #todo 把触发改成仅仅时边沿触发，因为触发的模式太多了，分开写会比较好
+    def trigger_edge_set(self, **sets):
+        '设置edge模式的相关参数'
         #耦合是直流交流还有"LFReject"（50khz高通），level控制触发电压电平
         EDGE = {"耦合": "DC", "level": "5E-2","拒绝":"OFF","斜率":"POSitive","触发源":"CHANnel1"}
-        #一些模式涵盖之外的命令
-        func = {"噪声过滤":0, "扫描模式":"AUTO"}
 
-        #如果输入的是有效的触发模式，则执行以下
-        for mode in modes:
-            command = ":TRIGger"
-            match mode:
-                #todo 做实验看一下不同lEVel值的效果怎么样我不是很懂
-                case "EDGE":#边沿模式中有四个调整项其中level、斜率示例调整了，其它可以选调
-                    for key in sets.keys():
-                        if key in EDGE.key():
-                            EDGE[key] = sets[key]
-                        #"触发源":
-                            command = ":TRIGger"+":SOURce "  +EDGE["触发源"]
-                            self.instrument.write(command)
-                        # "level":
-                            command = ":TRIGger"+":LEVel "   +EDGE["level"]
-                            self.instrument.write(command)
-                        #"耦合":
-                            command = ":TRIGger"+":COUPling "+EDGE["耦合"]
-                            self.instrument.write(command)
-                        #"斜率":
-                            command = ":TRIGger"+":SLOPe "   +EDGE["斜率"]
-                            self.instrument.write(command)
-                        # "拒绝":
-                            command = ":TRIGger"+":REJect"   +EDGE["拒绝"]
-                            self.instrument.write(command)               
-                        else :
-                            print("EDGE不支持该参数变化")
+        command = ":TRIGger"
+            #todo 做实验看一下不同lEVel值的效果怎么样我不是很懂
+        #边沿模式中有四个调整项其中level、斜率示例调整了，其它可以选调
+        for key in sets.keys():
+            if key in EDGE.key():
+                EDGE[key] = sets[key]
+            #"触发源":
+                command = ":TRIGger"+":SOURce "  +EDGE["触发源"]
+                self.instrument.write(command)
+            # "level":
+                command = ":TRIGger"+":LEVel "   +EDGE["level"]
+                self.instrument.write(command)
+            #"耦合":
+                command = ":TRIGger"+":COUPling "+EDGE["耦合"]
+                self.instrument.write(command)
+            #"斜率":
+                command = ":TRIGger"+":SLOPe "   +EDGE["斜率"]
+                self.instrument.write(command)
+            # "拒绝":
+                command = ":TRIGger"+":REJect"   +EDGE["拒绝"]
+                self.instrument.write(command)               
+            else :
+                print("EDGE不支持该参数变化")
 
-             #如果输入的**sets的key在func.keys()当中，则把sets[key]赋值给func[key]
-            if mode != "EDGE":#"EDGE"有自己的高低通滤波器选项，不知道别的有没有，没看
-                for key in sets.keys():
-                    if key in func.keys():
-                        match sets:
-                            case "噪声过滤":
-                                command = ":TRIGger:NREJect 1"
-                                self.instrument.write(command)
-        else:                   
-            print("没有该触发模式")  
+
     
 
     #mark 通道、时间基础设置
+            #todo 增加带宽控制，虽然编程手册说带宽限制可以写任意值，但是只有25Mhz (:CHANnel<n>:BANDwidth)
     def scale_set(self,chan_scale= "0.05V",chan_offset=0,time_scale =1.5E-7 ,time_offeset = 0,**comm):
         '采集时间基数和通道基数的设定,还有增加精准游标":VERNier",反转纵向值":INVert?",设置阻抗"IMPedance"FIFty or ONEMeg功能'
         commands={":VERNier":0,":INVert":0,"IMPedance":"ONEMeg"}
